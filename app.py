@@ -695,6 +695,7 @@ if __name__ == '__main__':
     # Development server
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting server on port {port}")
+    run_startup_check()  # Run startup check in development
     app.run(host='0.0.0.0', port=port, debug=False)
 else:
     # Production server (Gunicorn on Render)
@@ -702,12 +703,7 @@ else:
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     print(f"Download folder: {app.config['DOWNLOAD_FOLDER']}")
     
-    # Check environment on startup
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    print(f"ANTHROPIC_API_KEY configured: {'Yes' if api_key else 'No'}")
-    
-    if not api_key:
-        print("❌ WARNING: ANTHROPIC_API_KEY not found in environment!")
-        print("Available env vars:", [k for k in os.environ.keys() if not k.startswith('_')])
+    # Run startup check in production
+    run_startup_check()
     
     print("=== PRODUCTION STARTUP COMPLETE ===")
