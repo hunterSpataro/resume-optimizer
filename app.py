@@ -218,10 +218,8 @@ def get_anthropic_client():
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             print("ERROR: ANTHROPIC_API_KEY environment variable not found")
-            print(f"Available environment variables: {list(os.environ.keys())}")
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         
-        print(f"API key found: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
         try:
             client = anthropic.Anthropic(api_key=api_key)
             print("Anthropic client initialized successfully")
@@ -489,7 +487,6 @@ def optimize():
         
         print("=== AI RESPONSE RECEIVED ===")
         print(f"Response length: {len(result)} characters")
-        print(f"Response preview: {result[:300]}...")
         
         # Parse the result using enhanced parsing
         print("Parsing AI response...")
@@ -498,12 +495,10 @@ def optimize():
         # Validate parsed content
         if not resume_content or len(resume_content.strip()) < 50:
             print(f"ERROR: Resume content is too short or empty. Length: {len(resume_content) if resume_content else 0}")
-            print(f"Raw result preview: {result[:500]}...")
             return jsonify({'error': 'Could not extract valid resume content from AI response. Please try again.'}), 500
         
         if not cover_letter_content or len(cover_letter_content.strip()) < 50:
             print(f"ERROR: Cover letter content is too short or empty. Length: {len(cover_letter_content) if cover_letter_content else 0}")
-            print(f"Raw result preview: {result[:500]}...")
             return jsonify({'error': 'Could not extract valid cover letter content from AI response. Please try again.'}), 500
         
         print(f"Content validation passed - Resume: {len(resume_content)} chars, Cover Letter: {len(cover_letter_content)} chars")
@@ -516,19 +511,6 @@ def optimize():
         session['resume_content'] = resume_content
         session['cover_letter_content'] = cover_letter_content
         
-        # Verify session storage worked
-        stored_resume = session.get('resume_content')
-        stored_cover_letter = session.get('cover_letter_content')
-        
-        if not stored_resume:
-            print("ERROR: Failed to store resume content in session")
-            return jsonify({'error': 'Failed to store resume content. Please try again.'}), 500
-        
-        if not stored_cover_letter:
-            print("ERROR: Failed to store cover letter content in session")
-            return jsonify({'error': 'Failed to store cover letter content. Please try again.'}), 500
-        
-        print(f"Session storage verified - Resume: {len(stored_resume)} chars, Cover Letter: {len(stored_cover_letter)} chars")
         print("=== OPTIMIZATION COMPLETED SUCCESSFULLY ===")
         
         return jsonify({
@@ -556,10 +538,6 @@ def download_file(file_type):
             print(f"ERROR: Invalid file type: {file_type}")
             return jsonify({'error': 'Invalid file type'}), 400
         
-        # Debug session contents
-        print(f"Session keys: {list(session.keys())}")
-        print(f"Session ID: {session.get('_id', 'No ID')}")
-        
         # Get content from session
         content_key = f'{file_type}_content'
         content = session.get(content_key)
@@ -568,8 +546,6 @@ def download_file(file_type):
         
         if not content:
             print(f"ERROR: No content found for {file_type}")
-            available_keys = [k for k in session.keys() if not k.startswith('_')]
-            print(f"Available session keys: {available_keys}")
             return jsonify({'error': f'No {file_type} content available. Please generate content first.'}), 400
         
         if len(content.strip()) < 10:
@@ -615,19 +591,16 @@ def download_file(file_type):
         traceback.print_exc()
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
-# Add error handler for 500 errors
 @app.errorhandler(500)
 def internal_error(error):
     print(f"500 Error Handler Called: {error}")
     return jsonify({'error': 'Internal server error occurred'}), 500
 
-# Add error handler for 404 errors  
 @app.errorhandler(404)
 def not_found_error(error):
     print(f"404 Error Handler Called: {error}")
     return jsonify({'error': 'Endpoint not found'}), 404
 
-# Add error handler for general exceptions
 @app.errorhandler(Exception)
 def handle_exception(e):
     print(f"General Exception Handler Called: {e}")
@@ -635,35 +608,6 @@ def handle_exception(e):
     traceback.print_exc()
     return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
-# Add startup logging for Render
-@app.before_first_request
-def startup_check():
-    print("=== RENDER STARTUP CHECK ===")
-    print(f"Python version: {os.sys.version}")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Upload folder exists: {os.path.exists(app.config['UPLOAD_FOLDER'])}")
-    print(f"Download folder exists: {os.path.exists(app.config['DOWNLOAD_FOLDER'])}")
-    
-    # Check for required environment variables
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    secret_key = os.environ.get("SECRET_KEY")
-    
-    print(f"ANTHROPIC_API_KEY set: {'Yes' if api_key else 'No'}")
-    print(f"SECRET_KEY set: {'Yes' if secret_key else 'No'}")
-    
-    if api_key:
-        print(f"API key preview: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
-    
-    # Test Anthropic client initialization
-    try:
-        test_client = get_anthropic_client()
-        print("✅ Anthropic client initialized successfully")
-    except Exception as e:
-        print(f"❌ Anthropic client initialization failed: {e}")
-    
-    print("=== STARTUP CHECK COMPLETE ===")
-
-# Health check endpoint for Render with detailed info
 @app.route('/health')
 def health_check():
     try:
@@ -695,7 +639,6 @@ if __name__ == '__main__':
     # Development server
     port = int(os.environ.get('PORT', 5000))
     print(f"Starting server on port {port}")
-    run_startup_check()  # Run startup check in development
     app.run(host='0.0.0.0', port=port, debug=False)
 else:
     # Production server (Gunicorn on Render)
@@ -703,7 +646,8 @@ else:
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     print(f"Download folder: {app.config['DOWNLOAD_FOLDER']}")
     
-    # Run startup check in production
-    run_startup_check()
+    # Check environment on startup
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    print(f"ANTHROPIC_API_KEY configured: {'Yes' if api_key else 'No'}")
     
     print("=== PRODUCTION STARTUP COMPLETE ===")
