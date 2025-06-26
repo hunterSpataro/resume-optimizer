@@ -1,4 +1,6 @@
 import os
+import signal
+from functools import wraps
 from flask import Flask, request, render_template, jsonify, send_file, session
 import anthropic
 from werkzeug.utils import secure_filename
@@ -213,6 +215,7 @@ def create_docx_cover_letter(cover_letter_content, filename_prefix="cover_letter
         raise e
 
 def get_anthropic_client():
+    """Get Anthropic client with enhanced error handling for Claude 4"""
     global client
     if client is None:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -220,13 +223,175 @@ def get_anthropic_client():
             print("ERROR: ANTHROPIC_API_KEY environment variable not found")
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
         
+        # Validate API key format (should start with sk-)
+        if not api_key.startswith('sk-'):
+            print("ERROR: ANTHROPIC_API_KEY appears to be invalid format")
+            raise ValueError("ANTHROPIC_API_KEY appears to be in wrong format")
+        
         try:
-            client = anthropic.Anthropic(api_key=api_key)
-            print("Anthropic client initialized successfully")
+            print(f"Initializing Anthropic client with API key: {api_key[:10]}...")
+            
+            # Initialize with proper Claude 4 client settings
+            client = anthropic.Anthropic(
+                api_key=api_key,
+                # Add timeout for Claude 4 (60 minutes as per docs)
+                timeout=3600.0  # 60 minutes in seconds
+            )
+            print("Anthropic client initialized successfully for Claude 4")
+            
+            # Test the client with a simple call to validate it works
+            try:
+                # Simple test call to verify the API key and model access
+                test_message = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=10,
+                    messages=[{"role": "user", "content": "Hi"}]
+                )
+                print("API key validation successful - Claude 4 is accessible")
+            except Exception as test_error:
+                print(f"Claude 4 validation failed, trying Claude 3.5 Sonnet fallback: {test_error}")
+                # Try Claude 3.5 Sonnet as fallback
+                try:
+                    test_message = client.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        max_tokens=10,
+                        messages=[{"role": "user", "content": "Hi"}]
+                    )
+                    print("Fallback to Claude 3.5 Sonnet successful")
+                except Exception as fallback_error:
+                    print(f"Both Claude 4 and Claude 3.5 failed: {fallback_error}")
+                    raise test_error
+            
         except Exception as e:
             print(f"Failed to initialize Anthropic client: {e}")
             raise e
     return client
+
+def optimize_resume_and_cover_letter(resume_text, job_description, user_notes):
+    """Use Claude to optimize resume and generate cover letter with Claude 4 specifications"""
+    
+    try:
+        print("=== STARTING ANTHROPIC API CALL ===")
+        print(f"Resume text length: {len(resume_text)}")
+        print(f"Job description length: {len(job_description)}")
+        print(f"User notes length: {len(user_notes) if user_notes else 0}")
+        
+        # Truncate inputs if they're too long to prevent API errors
+        max_resume_length = 15000  # Increased for Claude 4
+        max_job_desc_length = 8000  # Increased for Claude 4
+        max_notes_length = 2000    # Increased for Claude 4
+        
+        if len(resume_text) > max_resume_length:
+            resume_text = resume_text[:max_resume_length] + "... [truncated]"
+            print(f"Resume text truncated to {max_resume_length} characters")
+        
+        if len(job_description) > max_job_desc_length:
+            job_description = job_description[:max_job_desc_length] + "... [truncated]"
+            print(f"Job description truncated to {max_job_desc_length} characters")
+        
+        if user_notes and len(user_notes) > max_notes_length:
+            user_notes = user_notes[:max_notes_length] + "... [truncated]"
+            print(f"User notes truncated to {max_notes_length} characters")
+
+        prompt = f"""
+You are an expert resume writer and ATS optimization specialist. Your task is to transform the provided resume into a compelling, keyword-optimized document.
+
+CRITICAL RULES:
+1. NEVER fabricate experiences, skills, dates, or qualifications
+2. Only reorganize, enhance language, and strategically highlight existing information
+3. Use user notes to add context or clarify ambiguous information
+4. Ensure ATS compatibility while maintaining visual appeal
+5. Focus on quantifiable achievements and impact-driven language
+
+ORIGINAL RESUME:
+{resume_text}
+
+TARGET JOB DESCRIPTION:
+{job_description}
+
+ADDITIONAL CONTEXT:
+{user_notes if user_notes else "No additional context provided"}
+
+Please provide your response in exactly this format:
+
+## OPTIMIZED RESUME
+
+[Create a strategically organized, keyword-optimized resume that transforms the original content into a compelling professional narrative. Focus on impact, achievements, and alignment with the target role while maintaining complete accuracy to the original information.]
+
+## COVER LETTER
+
+[Write a professional 3-4 paragraph cover letter that highlights relevant experience and enthusiasm for the role.]
+
+Make sure to use exactly "## OPTIMIZED RESUME" and "## COVER LETTER" as section headers.
+"""
+
+        print("Prompt created, making API call...")
+        print(f"About to call API with model: claude-sonnet-4-20250514")
+        print(f"Max tokens: 8000")
+        print(f"Prompt length: {len(prompt)} characters")
+        
+        client = get_anthropic_client()
+        
+        # Try Claude 4 first, fallback to Claude 3.5 if needed
+        try:
+            # Updated API call for Claude 4
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=8000,  # Increased for Claude 4
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            print("Claude 4 API call completed successfully")
+            
+        except Exception as claude4_error:
+            print(f"Claude 4 failed, trying Claude 3.5 Sonnet: {claude4_error}")
+            
+            # Fallback to Claude 3.5 Sonnet
+            try:
+                message = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=4000,  # Reduced for Claude 3.5
+                    temperature=0.3,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                print("Claude 3.5 Sonnet API call completed successfully")
+                
+            except Exception as claude35_error:
+                print(f"Both Claude 4 and Claude 3.5 failed: {claude35_error}")
+                raise claude4_error  # Raise the original Claude 4 error
+        
+        response_text = message.content[0].text if message.content else "Error generating response"
+        print(f"Claude API response received: {len(response_text)} characters")
+        print("=== ANTHROPIC API CALL COMPLETED ===")
+        
+        return response_text
+        
+    except Exception as e:
+        print(f"=== ANTHROPIC API ERROR ===")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
+        
+        # Log the full error details
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
+        
+        # Return a more specific error message based on Claude 4 error types
+        error_str = str(e).lower()
+        if "rate_limit" in error_str or "429" in error_str:
+            return "Error: API rate limit exceeded. Please try again in a few minutes."
+        elif "timeout" in error_str or "504" in error_str:
+            return "Error: Request timed out. Please try again with a shorter resume or job description."
+        elif "authentication" in error_str or "401" in error_str or "api_key" in error_str:
+            return "Error: API authentication failed. Please contact support."
+        elif "invalid_request" in error_str or "400" in error_str:
+            return "Error: Request format invalid. Please try with a different resume or job description."
+        elif "model" in error_str and ("not found" in error_str or "invalid" in error_str):
+            return "Error: Model not available. Please contact support about Claude 4 access."
+        elif "context_length" in error_str or "too_large" in error_str:
+            return "Error: Content too large. Please try with a shorter resume or job description."
+        else:
+            return f"Error communicating with AI service: {str(e)}"
 
 def parse_ai_response(result):
     """Enhanced parsing of AI response with multiple fallback methods"""
@@ -326,106 +491,53 @@ def parse_ai_response(result):
     
     return resume_content, cover_letter_content
 
-def optimize_resume_and_cover_letter(resume_text, job_description, user_notes):
-    """Use Claude to optimize resume and generate cover letter"""
-    
-    prompt = f"""
-You are an expert resume writer and ATS optimization specialist with deep knowledge of modern hiring practices. Your task is to transform the provided resume into a compelling, keyword-optimized document that will pass AI screening while capturing human attention.
+# Timeout decorator
+def timeout_handler(signum, frame):
+    raise TimeoutError("Request timed out")
 
-CRITICAL RULES:
-1. NEVER fabricate experiences, skills, dates, or qualifications
-2. Only reorganize, enhance language, and strategically highlight existing information
-3. Use user notes to add context or clarify ambiguous information
-4. Ensure ATS compatibility while maintaining visual appeal
-5. Focus on quantifiable achievements and impact-driven language
+def with_timeout(timeout_seconds=120):
+    """Decorator to add timeout to functions"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Set the signal handler
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout_seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except TimeoutError:
+                print(f"Function {func.__name__} timed out after {timeout_seconds} seconds")
+                raise
+            finally:
+                # Reset the alarm and restore old handler
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+        return wrapper
+    return decorator
 
-OPTIMIZATION STRATEGY:
-- Extract and prominently feature relevant keywords from the job description
-- Transform passive descriptions into active, achievement-focused statements
-- Quantify accomplishments wherever possible (percentages, numbers, scale)
-- Use power verbs and industry-specific terminology
-- Structure content for maximum impact and readability
-- Ensure keyword density matches job requirements without keyword stuffing
-
-ORIGINAL RESUME:
-{resume_text}
-
-TARGET JOB DESCRIPTION:
-{job_description}
-
-ADDITIONAL CONTEXT:
-{user_notes if user_notes else "No additional context provided"}
-
-RESUME OPTIMIZATION GUIDELINES:
-
-**STRUCTURE & FORMATTING:**
-- Lead with a compelling Professional Summary (3-4 lines) that mirrors job requirements
-- Use clear section headers: Professional Summary, Core Competencies, Professional Experience, Education, Certifications
-- Prioritize most relevant sections based on job requirements
-- Use consistent formatting and strategic white space
-
-**CONTENT ENHANCEMENT:**
-- Start bullet points with powerful action verbs (Spearheaded, Orchestrated, Optimized, etc.)
-- Include specific metrics and outcomes where they exist in original content
-- Use the STAR method framework (Situation, Task, Action, Result) for major achievements
-- Incorporate relevant keywords naturally throughout all sections
-- Highlight technical skills, certifications, and tools mentioned in job posting
-
-**LANGUAGE OPTIMIZATION:**
-- Replace weak phrases with strong, specific language
-- Use industry terminology that matches the job description
-- Ensure each bullet point demonstrates value and impact
-- Vary sentence structure while maintaining clarity
-- Eliminate redundancy and filler words
-
-**ATS OPTIMIZATION:**
-- Include exact keyword matches from job description
-- Use standard section headings
-- Avoid graphics, tables, or complex formatting
-- Include both acronyms and full terms (e.g., "Search Engine Optimization (SEO)")
-- Ensure critical skills appear multiple times in different contexts
-
-Please provide your response in exactly this format:
-
-## OPTIMIZED RESUME
-
-[Create a strategically organized, keyword-optimized resume that transforms the original content into a compelling professional narrative. Focus on impact, achievements, and alignment with the target role while maintaining complete accuracy to the original information.]
-
-## COVER LETTER
-
-[Cover letter content here - 3-4 paragraphs, professional but personable]
-
-Make sure to use exactly "## OPTIMIZED RESUME" and "## COVER LETTER" as section headers.
-"""
-
-    try:
-        client = get_anthropic_client()
-        
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4000,
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        response_text = message.content[0].text if message.content else "Error generating response"
-        print(f"Claude API response received: {len(response_text)} characters")
-        
-        return response_text
-        
-    except Exception as e:
-        print(f"Anthropic API Error: {str(e)}")
-        traceback.print_exc()
-        return f"Error communicating with AI: {str(e)}"
+# Request logging
+@app.before_request
+def log_request_info():
+    print(f"=== REQUEST INFO ===")
+    print(f"Path: {request.path}")
+    print(f"Method: {request.method}")
+    print(f"Content-Type: {request.content_type}")
+    print(f"Is JSON: {request.is_json}")
+    print(f"===================")
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/optimize', methods=['POST'])
+@with_timeout(120)  # 2 minute timeout
 def optimize():
     try:
         print("=== OPTIMIZE ENDPOINT CALLED ===")
+        print(f"Request method: {request.method}")
+        print(f"Content type: {request.content_type}")
         
         # Check if file was uploaded
         if 'resume' not in request.files:
@@ -478,8 +590,12 @@ def optimize():
         
         print("API key found, generating optimized content...")
         
-        # Generate optimized content
-        result = optimize_resume_and_cover_letter(resume_text, job_description, user_notes)
+        # Generate optimized content with timeout protection
+        try:
+            result = optimize_resume_and_cover_letter(resume_text, job_description, user_notes)
+        except TimeoutError:
+            print("AI generation timed out")
+            return jsonify({'error': 'Request timed out. Please try again with a shorter resume or job description.'}), 408
         
         if result.startswith("Error"):
             print(f"AI generation error: {result}")
@@ -520,6 +636,9 @@ def optimize():
             'cover_letter_content': cover_letter_content
         })
         
+    except TimeoutError:
+        print("OPTIMIZE TIMEOUT: Request exceeded time limit")
+        return jsonify({'error': 'Request timed out. Please try again with shorter content.'}), 408
     except Exception as e:
         print(f"OPTIMIZE ERROR: {str(e)}")
         print(f"Error type: {type(e)}")
@@ -591,22 +710,68 @@ def download_file(file_type):
         traceback.print_exc()
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
+# Improved error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    print(f"404 Error Handler Called: {error}")
+    if request.is_json or request.content_type == 'application/json':
+        return jsonify({'error': 'Endpoint not found'}), 404
+    else:
+        # For browser requests, return a simple HTML page
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>404 - Not Found</title></head>
+        <body>
+            <h1>404 - Page Not Found</h1>
+            <p>The requested URL was not found on this server.</p>
+            <p><a href="/">Go back to home</a></p>
+        </body>
+        </html>
+        """, 404
+
 @app.errorhandler(500)
 def internal_error(error):
     print(f"500 Error Handler Called: {error}")
     return jsonify({'error': 'Internal server error occurred'}), 500
-
-@app.errorhandler(404)
-def not_found_error(error):
-    print(f"404 Error Handler Called: {error}")
-    return jsonify({'error': 'Endpoint not found'}), 404
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     print(f"General Exception Handler Called: {e}")
     print(f"Exception type: {type(e)}")
     traceback.print_exc()
-    return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+    
+    # Check if this is an API request (expecting JSON response)
+    if request.path.startswith('/optimize') or request.path.startswith('/download') or request.path.startswith('/health'):
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+    else:
+        # For browser requests to main page
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Error</title></head>
+        <body>
+            <h1>Application Error</h1>
+            <p>An unexpected error occurred. Please try again later.</p>
+            <p><a href="/">Go back to home</a></p>
+        </body>
+        </html>
+        """, 500
+
+# Add a catch-all route for debugging
+@app.route('/<path:path>')
+def catch_all(path):
+    print(f"Catch-all route hit: {path}")
+    return jsonify({
+        'error': f'Route not found: /{path}',
+        'available_routes': [
+            '/',
+            '/optimize',
+            '/download/resume', 
+            '/download/cover_letter',
+            '/health'
+        ]
+    }), 404
 
 @app.route('/health')
 def health_check():
