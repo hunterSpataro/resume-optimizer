@@ -217,8 +217,17 @@ def get_anthropic_client():
     if client is None:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
+            print("ERROR: ANTHROPIC_API_KEY environment variable not found")
+            print(f"Available environment variables: {list(os.environ.keys())}")
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-        client = anthropic.Anthropic(api_key=api_key)
+        
+        print(f"API key found: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
+            print("Anthropic client initialized successfully")
+        except Exception as e:
+            print(f"Failed to initialize Anthropic client: {e}")
+            raise e
     return client
 
 def parse_ai_response(result):
@@ -444,37 +453,57 @@ def optimize():
         filename = secure_filename(file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
+        print(f"File saved to: {file_path}")
         
         # Extract text from resume
+        print("Extracting text from file...")
         resume_text = extract_text_from_file(file_path, filename)
         
         # Clean up uploaded file
-        os.remove(file_path)
+        try:
+            os.remove(file_path)
+            print("Uploaded file cleaned up")
+        except Exception as cleanup_error:
+            print(f"Warning: Could not clean up file {file_path}: {cleanup_error}")
         
         if resume_text.startswith("Error"):
+            print(f"Text extraction error: {resume_text}")
             return jsonify({'error': resume_text}), 400
         
         print(f"Resume text extracted: {len(resume_text)} characters")
+        
+        # Check API key before making request
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("ERROR: ANTHROPIC_API_KEY not found in environment")
+            return jsonify({'error': 'AI service configuration error. Please contact support.'}), 500
+        
+        print("API key found, generating optimized content...")
         
         # Generate optimized content
         result = optimize_resume_and_cover_letter(resume_text, job_description, user_notes)
         
         if result.startswith("Error"):
+            print(f"AI generation error: {result}")
             return jsonify({'error': result}), 500
         
         print("=== AI RESPONSE RECEIVED ===")
-        print(f"Response preview: {result[:200]}...")
+        print(f"Response length: {len(result)} characters")
+        print(f"Response preview: {result[:300]}...")
         
         # Parse the result using enhanced parsing
+        print("Parsing AI response...")
         resume_content, cover_letter_content = parse_ai_response(result)
         
         # Validate parsed content
         if not resume_content or len(resume_content.strip()) < 50:
-            print("ERROR: Resume content is too short or empty")
+            print(f"ERROR: Resume content is too short or empty. Length: {len(resume_content) if resume_content else 0}")
+            print(f"Raw result preview: {result[:500]}...")
             return jsonify({'error': 'Could not extract valid resume content from AI response. Please try again.'}), 500
         
         if not cover_letter_content or len(cover_letter_content.strip()) < 50:
-            print("ERROR: Cover letter content is too short or empty")
+            print(f"ERROR: Cover letter content is too short or empty. Length: {len(cover_letter_content) if cover_letter_content else 0}")
+            print(f"Raw result preview: {result[:500]}...")
             return jsonify({'error': 'Could not extract valid cover letter content from AI response. Please try again.'}), 500
         
         print(f"Content validation passed - Resume: {len(resume_content)} chars, Cover Letter: {len(cover_letter_content)} chars")
@@ -483,6 +512,7 @@ def optimize():
         session.permanent = True
         
         # Store in session with verification
+        print("Storing content in session...")
         session['resume_content'] = resume_content
         session['cover_letter_content'] = cover_letter_content
         
@@ -510,8 +540,12 @@ def optimize():
         
     except Exception as e:
         print(f"OPTIMIZE ERROR: {str(e)}")
+        print(f"Error type: {type(e)}")
         traceback.print_exc()
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        
+        # Return a proper JSON error response
+        error_message = f'Server error: {str(e)}'
+        return jsonify({'error': error_message}), 500
 
 @app.route('/download/<file_type>')
 def download_file(file_type):
@@ -581,17 +615,99 @@ def download_file(file_type):
         traceback.print_exc()
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
-# Health check endpoint for Render
+# Add error handler for 500 errors
+@app.errorhandler(500)
+def internal_error(error):
+    print(f"500 Error Handler Called: {error}")
+    return jsonify({'error': 'Internal server error occurred'}), 500
+
+# Add error handler for 404 errors  
+@app.errorhandler(404)
+def not_found_error(error):
+    print(f"404 Error Handler Called: {error}")
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+# Add error handler for general exceptions
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"General Exception Handler Called: {e}")
+    print(f"Exception type: {type(e)}")
+    traceback.print_exc()
+    return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+# Add startup logging for Render
+@app.before_first_request
+def startup_check():
+    print("=== RENDER STARTUP CHECK ===")
+    print(f"Python version: {os.sys.version}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Upload folder exists: {os.path.exists(app.config['UPLOAD_FOLDER'])}")
+    print(f"Download folder exists: {os.path.exists(app.config['DOWNLOAD_FOLDER'])}")
+    
+    # Check for required environment variables
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    secret_key = os.environ.get("SECRET_KEY")
+    
+    print(f"ANTHROPIC_API_KEY set: {'Yes' if api_key else 'No'}")
+    print(f"SECRET_KEY set: {'Yes' if secret_key else 'No'}")
+    
+    if api_key:
+        print(f"API key preview: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
+    
+    # Test Anthropic client initialization
+    try:
+        test_client = get_anthropic_client()
+        print("✅ Anthropic client initialized successfully")
+    except Exception as e:
+        print(f"❌ Anthropic client initialization failed: {e}")
+    
+    print("=== STARTUP CHECK COMPLETE ===")
+
+# Health check endpoint for Render with detailed info
 @app.route('/health')
 def health_check():
-    return jsonify({'status': 'healthy', 'service': 'resume-optimizer'}), 200
+    try:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        health_data = {
+            'status': 'healthy', 
+            'service': 'resume-optimizer',
+            'api_key_configured': bool(api_key),
+            'upload_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
+            'download_folder_exists': os.path.exists(app.config['DOWNLOAD_FOLDER'])
+        }
+        
+        # Test Anthropic client
+        try:
+            get_anthropic_client()
+            health_data['anthropic_client'] = 'initialized'
+        except Exception as e:
+            health_data['anthropic_client'] = f'error: {str(e)}'
+            health_data['status'] = 'degraded'
+        
+        return jsonify(health_data), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy', 
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Development server
     port = int(os.environ.get('PORT', 5000))
+    print(f"Starting server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
 else:
-    # Production server (Gunicorn)
-    print("Starting Resume Optimizer in production mode...")
+    # Production server (Gunicorn on Render)
+    print("=== STARTING RESUME OPTIMIZER IN PRODUCTION MODE ===")
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     print(f"Download folder: {app.config['DOWNLOAD_FOLDER']}")
+    
+    # Check environment on startup
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    print(f"ANTHROPIC_API_KEY configured: {'Yes' if api_key else 'No'}")
+    
+    if not api_key:
+        print("❌ WARNING: ANTHROPIC_API_KEY not found in environment!")
+        print("Available env vars:", [k for k in os.environ.keys() if not k.startswith('_')])
+    
+    print("=== PRODUCTION STARTUP COMPLETE ===")
