@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Optimizer</title>
+    <style>
+        :root {
+            --primary-blue: #007AFF;
+            --primary-blue-hover: #0056CC;
+            --primary-blue-light: rgba(0, 122, 255, 0.1);
+            --success-green: #34C759;
+            --error-red: #FF3B30;
+            --warning-orange: #FF9500;
+            --background-primary: #F2F2F7;
+            --background-secondary: #FFFFFF;
+            --background-tertiary: #F8F9FA;
+            --text-primary: #1D1D1F;
+            --text-secondary: #6E6E73;
+            --text-tertiary: #8E8E93;
+            --border-color: #D1D1D6;
+            --border-hover: #B0B0B5;
+            --shadow-light: 0 2px 16px rgba(0, 0, 0, 0.06);
+            --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.12);
+            --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.16);
+            --border-radius: 12px;
+            --border-radius-large: 20px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--background-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 16px;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 48px 24px 24px;
+            background: linear-gradient(135deg, var(--background-secondary) 0%, var(--background-tertiary) 100%);
+            border-radius: var(--border-radius-large);
+            box-shadow: var(--shadow-light);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            font-weight: 400;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            flex: 1;
+        }
+
+        .form-card, .results-card {
+            background: var(--background-secondary);
+            border-radius: var(--border-radius-large);
+            padding: 40px;
+            box-shadow: var(--shadow-medium);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+            transition: var(--transition);
+            height: fit-content;
+        }
+
+        .form-card:hover, .results-card:hover {
+            box-shadow: var(--shadow-heavy);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 32px;
+            letter-spacing: -0.01em;
+        }
+
+        .form-group {
+            margin-bottom: 28px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+
+        .file-upload-container {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 32px;
+            text-align: center;
+            background: var(--background-tertiary);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .file-upload-container:hover {
+            border-color: var(--primary-blue);
+            background: var(--primary-blue-light);
+        }
+
+        .file-upload-container.has-file {
+            border-color: var(--success-green);
+            background: rgba(52, 199, 89, 0.1);
+        }
+
+        .file-upload-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            background: var(--primary-blue-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--primary-blue);
+            transition: var(--transition);
+        }
+
+        .file-upload-container:hover .file-upload-icon {
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .file-upload-text {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .file-upload-subtext {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--background-secondary);
+            color: var(--text-primary);
+            resize: vertical;
+            transition: var(--transition);
+            line-height: 1.5;
+        }
+
+        .textarea:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px var(--primary-blue-light);
+        }
+
+        .textarea::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .primary-button {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            letter-spacing: -0.01em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .primary-button:hover:not(:disabled) {
+            background: var(--primary-blue-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .primary-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .primary-button:disabled {
+            background: var(--text-tertiary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading-container {
+            display: none;
+            text-align: center;
+            padding: 32px;
+            background: var(--background-tertiary);
+            border-radius: var(--border-radius);
+            margin-top: 24px;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .results-container {
+            display: none;
+        }
+
+        .success-banner {
+            background: rgba(52, 199, 89, 0.1);
+            border: 1px solid var(--success-green);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .success-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--success-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .success-text {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--success-green);
+        }
+
+        .content-section {
+            margin-bottom: 32px;
+            padding: 24px;
+            background: var(--background-tertiary);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section-icon {
+            font-size: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .content-preview {
+            background: var(--background-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            max-height: 240px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            margin-bottom: 20px;
+        }
+
+        .download-button {
+            background: var(--success-green);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .download-button:hover:not(:disabled) {
+            background: #2EBD4D;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-light);
+        }
+
+        .download-button:disabled {
+            background: var(--text-tertiary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .download-button.loading {
+            background: var(--warning-orange);
+        }
+
+        .download-button.error {
+            background: var(--error-red);
+        }
+
+        .error-banner {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid var(--error-red);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+            color: var(--error-red);
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-indicator.success {
+            background: var(--success-green);
+        }
+
+        .status-indicator.error {
+            background: var(--error-red);
+        }
+
+        .status-indicator.loading {
+            background: var(--warning-orange);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .debug-panel {
+            background: var(--background-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .debug-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .debug-content {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            background: var(--background-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .debug-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .debug-entry:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .debug-timestamp {
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .debug-message {
+            color: var(--text-primary);
+            margin: 4px 0;
+        }
+
+        .debug-data {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            background: var(--background-tertiary);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+            white-space: pre-wrap;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .container {
+                max-width: 1000px;
+                padding: 20px;
+            }
+            
+            .main-grid {
+                gap: 24px;
+            }
+            
+            .form-card, .results-card {
+                padding: 32px;
+            }
+        }
+
+        @media (max-width: 968px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            
+            .container {
+                padding: 16px;
+                gap: 24px;
+            }
+            
+            .header {
+                padding: 32px 24px 24px;
+            }
+            
+            .form-card, .results-card {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 12px;
+            }
+            
+            .header {
+                padding: 24px 16px 16px;
+            }
+            
+            .form-card, .results-card {
+                padding: 20px;
+            }
+            
+            .file-upload-container {
+                padding: 24px 16px;
+            }
+            
+            .primary-button {
+                padding: 14px 20px;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background-primary: #000000;
+                --background-secondary: #1C1C1E;
+                --background-tertiary: #2C2C2E;
+                --text-primary: #FFFFFF;
+                --text-secondary: #EBEBF5;
+                --text-tertiary: #8E8E93;
+                --border-color: #38383A;
+                --border-hover: #48484A;
+                --shadow-light: 0 2px 16px rgba(0, 0, 0, 0.3);
+                --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.4);
+                --shadow-heavy: 0 16px 64px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--background-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Resume Optimizer</h1>
+            <p>Transform your resume and craft the perfect cover letter with AI-powered optimization</p>
+        </header>
+
+        <main class="main-grid">
+            <section class="form-card">
+                <h2 class="card-title">Get Started</h2>
+                
+                <form id="optimizeForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label" for="resume">Upload Resume</label>
+                        <div class="file-upload-container" id="fileUploadContainer">
+                            <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx,.txt" required class="file-upload-input">
+                            <div class="file-upload-icon">📄</div>
+                            <div class="file-upload-text" id="fileUploadText">Choose your resume file</div>
+                            <div class="file-upload-subtext">PDF, DOC, DOCX, or TXT • Max 16MB</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="job_description">Job Description</label>
+                        <textarea 
+                            id="job_description" 
+                            name="job_description" 
+                            class="textarea" 
+                            placeholder="Paste the complete job description here..."
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="user_notes">Additional Notes <span style="color: var(--text-secondary); font-weight: 400;">(Optional)</span></label>
+                        <textarea 
+                            id="user_notes" 
+                            name="user_notes" 
+                            class="textarea" 
+                            placeholder="Any additional context, skills, or achievements you'd like to highlight..."
+                        ></textarea>
+                    </div>
+
+                    <button type="submit" class="primary-button" id="submitButton">
+                        <span class="status-indicator" id="submitStatus"></span>
+                        <span id="submitText">Optimize Resume</span>
+                    </button>
+                </form>
+
+                <div class="loading-container" id="loadingContainer">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text" id="loadingText">Processing your resume...</div>
+                </div>
+
+                <div class="debug-panel" id="debugPanel">
+                    <div class="debug-header">
+                        🔧 Debug Information
+                    </div>
+                    <div class="debug-content" id="debugContent"></div>
+                </div>
+            </section>
+
+            <section class="results-card">
+                <h2 class="card-title">Results</h2>
+                
+                <div class="error-banner" id="errorBanner"></div>
+                
+                <div class="results-container" id="resultsContainer">
+                    <div class="success-banner">
+                        <div class="success-icon">✓</div>
+                        <div class="success-text">Your optimized documents are ready!</div>
+                    </div>
+
+                    <div class="content-section">
+                        <div class="section-header">
+                            <span class="section-icon">📄</span>
+                            <h3 class="section-title">Optimized Resume</h3>
+                        </div>
+                        <div class="content-preview" id="resumePreview"></div>
+                        <button class="download-button" onclick="downloadDocument('resume')" id="resumeDownloadBtn">
+                            <span class="status-indicator" id="resumeStatus"></span>
+                            <span>Download Resume</span>
+                        </button>
+                    </div>
+
+                    <div class="content-section">
+                        <div class="section-header">
+                            <span class="section-icon">✉️</span>
+                            <h3 class="section-title">Cover Letter</h3>
+                        </div>
+                        <div class="content-preview" id="coverLetterPreview"></div>
+                        <button class="download-button" onclick="downloadDocument('cover_letter')" id="coverLetterDownloadBtn">
+                            <span class="status-indicator" id="coverLetterStatus"></span>
+                            <span>Download Cover Letter</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Configuration
+        const DEBUG = true;
+        let debugEntries = [];
+
+        // Debug logging system
+        function debugLog(message, data = null, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = { timestamp, message, data, type };
+            debugEntries.push(entry);
+            
+            if (DEBUG) {
+                console.log(`[${timestamp}] ${message}`, data);
+                updateDebugDisplay();
+            }
+        }
+
+        function updateDebugDisplay() {
+            if (!DEBUG) return;
+            
+            const debugPanel = document.getElementById('debugPanel');
+            const debugContent = document.getElementById('debugContent');
+            
+            debugPanel.style.display = 'block';
+            
+            const html = debugEntries.slice(-8).map(entry => {
+                const typeColor = {
+                    'error': 'var(--error-red)',
+                    'success': 'var(--success-green)',
+                    'warning': 'var(--warning-orange)',
+                    'info': 'var(--text-secondary)'
+                };
+                
+                return `
+                    <div class="debug-entry">
+                        <div class="debug-timestamp">${entry.timestamp}</div>
+                        <div class="debug-message" style="color: ${typeColor[entry.type]}">${entry.message}</div>
+                        ${entry.data ? `<div class="debug-data">${JSON.stringify(entry.data, null, 2)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            debugContent.innerHTML = html;
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+
+        // Status indicator management
+        function updateStatusIndicator(elementId, status) {
+            const indicator = document.getElementById(elementId);
+            if (indicator) {
+                indicator.className = `status-indicator ${status}`;
+            }
+        }
+
+        // File upload handling
+        document.getElementById('resume').addEventListener('change', function(e) {
+            const fileUploadContainer = document.getElementById('fileUploadContainer');
+            const fileUploadText = document.getElementById('fileUploadText');
+            
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileUploadContainer.classList.add('has-file');
+                fileUploadText.textContent = file.name;
+                
+                debugLog('File selected', {
+                    name: file.name,
+                    size: `${(file.size / 1024).toFixed(1)} KB`,
+                    type: file.type
+                }, 'success');
+            } else {
+                fileUploadContainer.classList.remove('has-file');
+                fileUploadText.textContent = 'Choose your resume file';
+            }
+        });
+
+        // Form submission
+        document.getElementById('optimizeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            debugLog('Form submission initiated', null, 'info');
+            
+            const submitButton = document.getElementById('submitButton');
+            const submitText = document.getElementById('submitText');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const loadingText = document.getElementById('loadingText');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const errorBanner = document.getElementById('errorBanner');
+            
+            // Reset UI state
+            resultsContainer.style.display = 'none';
+            errorBanner.style.display = 'none';
+            
+            // Set loading state
+            updateStatusIndicator('submitStatus', 'loading');
+            submitButton.disabled = true;
+            submitText.textContent = 'Processing...';
+            loadingContainer.style.display = 'block';
+            loadingText.textContent = 'Uploading and analyzing your resume...';
+            
+            try {
+                const formData = new FormData(this);
+                const file = formData.get('resume');
+                const jobDesc = formData.get('job_description');
+                const notes = formData.get('user_notes');
+                
+                debugLog('Form data prepared', {
+                    hasFile: !!file,
+                    fileName: file?.name,
+                    fileSize: file ? `${(file.size / 1024).toFixed(1)} KB` : 'N/A',
+                    jobDescLength: jobDesc?.length || 0,
+                    userNotesLength: notes?.length || 0
+                }, 'info');
+                
+                loadingText.textContent = 'Optimizing with AI...';
+                
+                const response = await fetch('/optimize', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                debugLog('Server response received', {
+                    status: response.status,
+                    ok: response.ok
+                }, response.ok ? 'success' : 'error');
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    const resumeContent = data.resume_content || '';
+                    const coverLetterContent = data.cover_letter_content || '';
+                    
+                    debugLog('Content processed successfully', {
+                        resumeLength: resumeContent.length,
+                        coverLetterLength: coverLetterContent.length
+                    }, 'success');
+                    
+                    // Display content
+                    document.getElementById('resumePreview').textContent = resumeContent;
+                    document.getElementById('coverLetterPreview').textContent = coverLetterContent;
+                    
+                    // Enable download buttons
+                    const resumeBtn = document.getElementById('resumeDownloadBtn');
+                    const coverLetterBtn = document.getElementById('coverLetterDownloadBtn');
+                    
+                    resumeBtn.disabled = false;
+                    coverLetterBtn.disabled = false;
+                    updateStatusIndicator('resumeStatus', 'success');
+                    updateStatusIndicator('coverLetterStatus', 'success');
+                    
+                    // Show results
+                    resultsContainer.style.display = 'block';
+                    updateStatusIndicator('submitStatus', 'success');
+                    
+                    // Smooth scroll to results
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    
+                } else {
+                    throw new Error(data.error || 'An unexpected error occurred');
+                }
+                
+            } catch (error) {
+                debugLog('Error during processing', {
+                    message: error.message
+                }, 'error');
+                
+                errorBanner.textContent = error.message;
+                errorBanner.style.display = 'block';
+                updateStatusIndicator('submitStatus', 'error');
+                
+                // Scroll to error
+                errorBanner.scrollIntoView({ behavior: 'smooth' });
+                
+            } finally {
+                // Reset form state
+                submitButton.disabled = false;
+                submitText.textContent = 'Optimize Resume';
+                loadingContainer.style.display = 'none';
+            }
+        });
+
+        // Download function
+        async function downloadDocument(type) {
+            debugLog(`Download initiated for: ${type}`, null, 'info');
+            
+            const buttonId = type === 'resume' ? 'resumeDownloadBtn' : 'coverLetterDownloadBtn';
+            const statusId = type === 'resume' ? 'resumeStatus' : 'coverLetterStatus';
+            const button = document.getElementById(buttonId);
+            const textSpan = button.querySelector('span:last-child');
+            
+            if (!button) {
+                debugLog(`Download button not found: ${buttonId}`, null, 'error');
+                return;
+            }
+            
+            // Set loading state
+            button.disabled = true;
+            button.classList.add('loading');
+            updateStatusIndicator(statusId, 'loading');
+            textSpan.textContent = 'Preparing...';
+            
+            try {
+                const response = await fetch(`/download/${type}`, {
+                    method: 'GET',
+                });
+                
+                debugLog(`Download response received`, {
+                    status: response.status,
+                    ok: response.ok
+                }, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    // Create download
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${type === 'resume' ? 'optimized_resume' : 'cover_letter'}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Success state
+                    button.classList.remove('loading');
+                    updateStatusIndicator(statusId, 'success');
+                    textSpan.textContent = 'Downloaded!';
+                    
+                    debugLog(`Download successful for: ${type}`, { fileName: a.download }, 'success');
+                    
+                } else {
+                    // Handle error response
+                    let errorMessage = `Download failed with status: ${response.status}`;
+                    
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (parseError) {
+                        debugLog('Could not parse error response', parseError, 'error');
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+            } catch (error) {
+                debugLog(`Download error for ${type}`, {
+                    message: error.message
+                }, 'error');
+                
+                // Error state
+                button.classList.remove('loading');
+                button.classList.add('error');
+                updateStatusIndicator(statusId, 'error');
+                textSpan.textContent = 'Download failed';
+                
+                // Show error
+                const errorBanner = document.getElementById('errorBanner');
+                errorBanner.textContent = `Download failed: ${error.message}`;
+                errorBanner.style.display = 'block';
+                errorBanner.scrollIntoView({ behavior: 'smooth' });
+                
+            } finally {
+                // Reset button state after delay
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.classList.remove('loading', 'error');
+                    updateStatusIndicator(statusId, 'success');
+                    const originalText = type === 'resume' ? 'Download Resume' : 'Download Cover Letter';
+                    textSpan.textContent = originalText;
+                }, 3000);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('Resume Optimizer initialized', {
+                userAgent: navigator.userAgent,
+                viewport: `${window.innerWidth}x${window.innerHeight}`,
+                timestamp: new Date().toISOString()
+            }, 'info');
+        });
+
+        // Handle responsive textarea sizing
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+        }
+
+        document.getElementById('job_description').addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
+
+        document.getElementById('user_notes').addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
+
+        // Enhanced drag and drop for file upload
+        const fileUploadContainer = document.getElementById('fileUploadContainer');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUploadContainer.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileUploadContainer.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileUploadContainer.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            fileUploadContainer.style.borderColor = 'var(--primary-blue)';
+            fileUploadContainer.style.background = 'var(--primary-blue-light)';
+        }
+
+        function unhighlight(e) {
+            fileUploadContainer.style.borderColor = '';
+            fileUploadContainer.style.background = '';
+        }
+
+        fileUploadContainer.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                const fileInput = document.getElementById('resume');
+                fileInput.files = files;
+                
+                // Trigger change event
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+                
+                debugLog('File dropped', {
+                    fileName: files[0].name,
+                    fileSize: `${(files[0].size / 1024).toFixed(1)} KB`
+                }, 'success');
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Cmd/Ctrl + Enter to submit form
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                const form = document.getElementById('optimizeForm');
+                if (form && !document.getElementById('submitButton').disabled) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
+        });
+
+        // Performance monitoring
+        if (DEBUG) {
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    const perfData = performance.getEntriesByType('navigation')[0];
+                    debugLog('Page performance', {
+                        loadTime: `${perfData.loadEventEnd - perfData.loadEventStart}ms`,
+                        domContentLoaded: `${perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart}ms`,
+                        totalTime: `${perfData.loadEventEnd - perfData.fetchStart}ms`
+                    }, 'info');
+                }, 1000);
+            });
+        }
+    </script>
+</body>
+</html>

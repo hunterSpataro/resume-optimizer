@@ -1,0 +1,82 @@
+# render.yaml - Render configuration file
+services:
+  - type: web
+    name: resume-optimizer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FLASK_ENV
+        value: production
+    disk:
+      name: resume-optimizer-disk
+      mountPath: /opt/render/project/src/downloads
+      sizeGB: 1
+
+---
+
+# .gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+uploads/
+downloads/
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+---
+
+# Procfile - For Heroku compatibility (optional)
+web: gunicorn --bind 0.0.0.0:$PORT app:app
+
+---
+
+# runtime.txt - Python version specification
+python-3.11.0
+
+---
+
+# Updated requirements.txt with production dependencies
+Flask==3.0.0
+anthropic==0.40.0
+pdfplumber==0.10.3
+python-docx==1.1.0
+Werkzeug==3.0.1
+gunicorn==21.2.0
+
+---
+
+# .env.example - Template for environment variables
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+FLASK_ENV=development
+PORT=5000
