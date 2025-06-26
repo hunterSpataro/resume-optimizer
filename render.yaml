@@ -14,19 +14,3 @@ services:
       name: resume-optimizer-disk
       mountPath: /opt/render/project/src/downloads
       sizeGB: 1
-
-
-# Updated requirements.txt with production dependencies
-Flask==3.0.0
-anthropic==0.40.0
-pdfplumber==0.10.3
-python-docx==1.1.0
-Werkzeug==3.0.1
-gunicorn==21.2.0
-
----
-
-# .env.example - Template for environment variables
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-FLASK_ENV=development
-PORT=5000
