@@ -323,29 +323,66 @@ def optimize_resume_and_cover_letter(resume_text, job_description, user_notes):
     """Use Claude to optimize resume and generate cover letter"""
     
     prompt = f"""
-You are a professional resume writer and career coach. Your task is to optimize a resume and create a cover letter for a specific job application.
+You are an expert resume writer and ATS optimization specialist with deep knowledge of modern hiring practices. Your task is to transform the provided resume into a compelling, keyword-optimized document that will pass AI screening while capturing human attention.
 
-IMPORTANT RULES:
-1. DO NOT fabricate any facts, experiences, or qualifications
-2. Only reorganize, rephrase, and highlight existing information to better match the job
-3. Use the user notes to add any additional context or missing information
-4. The resume must pass AI screening tools while maintaining a human, personal touch
-5. Keep all dates, company names, and core experiences accurate
+CRITICAL RULES:
+1. NEVER fabricate experiences, skills, dates, or qualifications
+2. Only reorganize, enhance language, and strategically highlight existing information
+3. Use user notes to add context or clarify ambiguous information
+4. Ensure ATS compatibility while maintaining visual appeal
+5. Focus on quantifiable achievements and impact-driven language
+
+OPTIMIZATION STRATEGY:
+- Extract and prominently feature relevant keywords from the job description
+- Transform passive descriptions into active, achievement-focused statements
+- Quantify accomplishments wherever possible (percentages, numbers, scale)
+- Use power verbs and industry-specific terminology
+- Structure content for maximum impact and readability
+- Ensure keyword density matches job requirements without keyword stuffing
 
 ORIGINAL RESUME:
 {resume_text}
 
-JOB DESCRIPTION:
+TARGET JOB DESCRIPTION:
 {job_description}
 
-USER NOTES (additional context or clarifications):
-{user_notes if user_notes else "No additional notes provided"}
+ADDITIONAL CONTEXT:
+{user_notes if user_notes else "No additional context provided"}
+
+RESUME OPTIMIZATION GUIDELINES:
+
+**STRUCTURE & FORMATTING:**
+- Lead with a compelling Professional Summary (3-4 lines) that mirrors job requirements
+- Use clear section headers: Professional Summary, Core Competencies, Professional Experience, Education, Certifications
+- Prioritize most relevant sections based on job requirements
+- Use consistent formatting and strategic white space
+
+**CONTENT ENHANCEMENT:**
+- Start bullet points with powerful action verbs (Spearheaded, Orchestrated, Optimized, etc.)
+- Include specific metrics and outcomes where they exist in original content
+- Use the STAR method framework (Situation, Task, Action, Result) for major achievements
+- Incorporate relevant keywords naturally throughout all sections
+- Highlight technical skills, certifications, and tools mentioned in job posting
+
+**LANGUAGE OPTIMIZATION:**
+- Replace weak phrases with strong, specific language
+- Use industry terminology that matches the job description
+- Ensure each bullet point demonstrates value and impact
+- Vary sentence structure while maintaining clarity
+- Eliminate redundancy and filler words
+
+**ATS OPTIMIZATION:**
+- Include exact keyword matches from job description
+- Use standard section headings
+- Avoid graphics, tables, or complex formatting
+- Include both acronyms and full terms (e.g., "Search Engine Optimization (SEO)")
+- Ensure critical skills appear multiple times in different contexts
 
 Please provide your response in exactly this format:
 
 ## OPTIMIZED RESUME
 
-[Resume content here - well formatted with clear sections]
+[Create a strategically organized, keyword-optimized resume that transforms the original content into a compelling professional narrative. Focus on impact, achievements, and alignment with the target role while maintaining complete accuracy to the original information.]
 
 ## COVER LETTER
 
@@ -358,9 +395,9 @@ Make sure to use exactly "## OPTIMIZED RESUME" and "## COVER LETTER" as section 
         client = get_anthropic_client()
         
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-20250514",
             max_tokens=4000,
-            temperature=0.7,
+            temperature=0.3,
             messages=[{"role": "user", "content": prompt}]
         )
         
