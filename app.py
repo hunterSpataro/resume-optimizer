@@ -1,6 +1,4 @@
 import os
-import signal
-from functools import wraps
 from flask import Flask, request, render_template, jsonify, send_file, session
 import anthropic
 from werkzeug.utils import secure_filename
@@ -215,183 +213,13 @@ def create_docx_cover_letter(cover_letter_content, filename_prefix="cover_letter
         raise e
 
 def get_anthropic_client():
-    """Get Anthropic client with enhanced error handling for Claude 4"""
     global client
     if client is None:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
-            print("ERROR: ANTHROPIC_API_KEY environment variable not found")
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")
-        
-        # Validate API key format (should start with sk-)
-        if not api_key.startswith('sk-'):
-            print("ERROR: ANTHROPIC_API_KEY appears to be invalid format")
-            raise ValueError("ANTHROPIC_API_KEY appears to be in wrong format")
-        
-        try:
-            print(f"Initializing Anthropic client with API key: {api_key[:10]}...")
-            
-            # Initialize with proper Claude 4 client settings
-            client = anthropic.Anthropic(
-                api_key=api_key,
-                # Add timeout for Claude 4 (60 minutes as per docs)
-                timeout=3600.0  # 60 minutes in seconds
-            )
-            print("Anthropic client initialized successfully for Claude 4")
-            
-            # Test the client with a simple call to validate it works
-            try:
-                # Simple test call to verify the API key and model access
-                test_message = client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=10,
-                    messages=[{"role": "user", "content": "Hi"}]
-                )
-                print("API key validation successful - Claude 4 is accessible")
-            except Exception as test_error:
-                print(f"Claude 4 validation failed, trying Claude 3.5 Sonnet fallback: {test_error}")
-                # Try Claude 3.5 Sonnet as fallback
-                try:
-                    test_message = client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
-                        max_tokens=10,
-                        messages=[{"role": "user", "content": "Hi"}]
-                    )
-                    print("Fallback to Claude 3.5 Sonnet successful")
-                except Exception as fallback_error:
-                    print(f"Both Claude 4 and Claude 3.5 failed: {fallback_error}")
-                    raise test_error
-            
-        except Exception as e:
-            print(f"Failed to initialize Anthropic client: {e}")
-            raise e
+        client = anthropic.Anthropic(api_key=api_key)
     return client
-
-def optimize_resume_and_cover_letter(resume_text, job_description, user_notes):
-    """Use Claude to optimize resume and generate cover letter with Claude 4 specifications"""
-    
-    try:
-        print("=== STARTING ANTHROPIC API CALL ===")
-        print(f"Resume text length: {len(resume_text)}")
-        print(f"Job description length: {len(job_description)}")
-        print(f"User notes length: {len(user_notes) if user_notes else 0}")
-        
-        # Truncate inputs if they're too long to prevent API errors
-        max_resume_length = 15000  # Increased for Claude 4
-        max_job_desc_length = 8000  # Increased for Claude 4
-        max_notes_length = 2000    # Increased for Claude 4
-        
-        if len(resume_text) > max_resume_length:
-            resume_text = resume_text[:max_resume_length] + "... [truncated]"
-            print(f"Resume text truncated to {max_resume_length} characters")
-        
-        if len(job_description) > max_job_desc_length:
-            job_description = job_description[:max_job_desc_length] + "... [truncated]"
-            print(f"Job description truncated to {max_job_desc_length} characters")
-        
-        if user_notes and len(user_notes) > max_notes_length:
-            user_notes = user_notes[:max_notes_length] + "... [truncated]"
-            print(f"User notes truncated to {max_notes_length} characters")
-
-        prompt = f"""
-You are an expert resume writer and ATS optimization specialist. Your task is to transform the provided resume into a compelling, keyword-optimized document.
-
-CRITICAL RULES:
-1. NEVER fabricate experiences, skills, dates, or qualifications
-2. Only reorganize, enhance language, and strategically highlight existing information
-3. Use user notes to add context or clarify ambiguous information
-4. Ensure ATS compatibility while maintaining visual appeal
-5. Focus on quantifiable achievements and impact-driven language
-
-ORIGINAL RESUME:
-{resume_text}
-
-TARGET JOB DESCRIPTION:
-{job_description}
-
-ADDITIONAL CONTEXT:
-{user_notes if user_notes else "No additional context provided"}
-
-Please provide your response in exactly this format:
-
-## OPTIMIZED RESUME
-
-[Create a strategically organized, keyword-optimized resume that transforms the original content into a compelling professional narrative. Focus on impact, achievements, and alignment with the target role while maintaining complete accuracy to the original information.]
-
-## COVER LETTER
-
-[Write a professional 3-4 paragraph cover letter that highlights relevant experience and enthusiasm for the role.]
-
-Make sure to use exactly "## OPTIMIZED RESUME" and "## COVER LETTER" as section headers.
-"""
-
-        print("Prompt created, making API call...")
-        print(f"About to call API with model: claude-sonnet-4-20250514")
-        print(f"Max tokens: 8000")
-        print(f"Prompt length: {len(prompt)} characters")
-        
-        client = get_anthropic_client()
-        
-        # Try Claude 4 first, fallback to Claude 3.5 if needed
-        try:
-            # Updated API call for Claude 4
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=8000,  # Increased for Claude 4
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            print("Claude 4 API call completed successfully")
-            
-        except Exception as claude4_error:
-            print(f"Claude 4 failed, trying Claude 3.5 Sonnet: {claude4_error}")
-            
-            # Fallback to Claude 3.5 Sonnet
-            try:
-                message = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,  # Reduced for Claude 3.5
-                    temperature=0.3,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                print("Claude 3.5 Sonnet API call completed successfully")
-                
-            except Exception as claude35_error:
-                print(f"Both Claude 4 and Claude 3.5 failed: {claude35_error}")
-                raise claude4_error  # Raise the original Claude 4 error
-        
-        response_text = message.content[0].text if message.content else "Error generating response"
-        print(f"Claude API response received: {len(response_text)} characters")
-        print("=== ANTHROPIC API CALL COMPLETED ===")
-        
-        return response_text
-        
-    except Exception as e:
-        print(f"=== ANTHROPIC API ERROR ===")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        
-        # Log the full error details
-        import traceback
-        print("Full traceback:")
-        traceback.print_exc()
-        
-        # Return a more specific error message based on Claude 4 error types
-        error_str = str(e).lower()
-        if "rate_limit" in error_str or "429" in error_str:
-            return "Error: API rate limit exceeded. Please try again in a few minutes."
-        elif "timeout" in error_str or "504" in error_str:
-            return "Error: Request timed out. Please try again with a shorter resume or job description."
-        elif "authentication" in error_str or "401" in error_str or "api_key" in error_str:
-            return "Error: API authentication failed. Please contact support."
-        elif "invalid_request" in error_str or "400" in error_str:
-            return "Error: Request format invalid. Please try with a different resume or job description."
-        elif "model" in error_str and ("not found" in error_str or "invalid" in error_str):
-            return "Error: Model not available. Please contact support about Claude 4 access."
-        elif "context_length" in error_str or "too_large" in error_str:
-            return "Error: Content too large. Please try with a shorter resume or job description."
-        else:
-            return f"Error communicating with AI service: {str(e)}"
 
 def parse_ai_response(result):
     """Enhanced parsing of AI response with multiple fallback methods"""
@@ -491,53 +319,69 @@ def parse_ai_response(result):
     
     return resume_content, cover_letter_content
 
-# Timeout decorator
-def timeout_handler(signum, frame):
-    raise TimeoutError("Request timed out")
+def optimize_resume_and_cover_letter(resume_text, job_description, user_notes):
+    """Use Claude to optimize resume and generate cover letter"""
+    
+    prompt = f"""
+You are a professional resume writer and career coach. Your task is to optimize a resume and create a cover letter for a specific job application.
 
-def with_timeout(timeout_seconds=120):
-    """Decorator to add timeout to functions"""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # Set the signal handler
-            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(timeout_seconds)
-            
-            try:
-                result = func(*args, **kwargs)
-                return result
-            except TimeoutError:
-                print(f"Function {func.__name__} timed out after {timeout_seconds} seconds")
-                raise
-            finally:
-                # Reset the alarm and restore old handler
-                signal.alarm(0)
-                signal.signal(signal.SIGALRM, old_handler)
-        return wrapper
-    return decorator
+IMPORTANT RULES:
+1. DO NOT fabricate any facts, experiences, or qualifications
+2. Only reorganize, rephrase, and highlight existing information to better match the job
+3. Use the user notes to add any additional context or missing information
+4. The resume must pass AI screening tools while maintaining a human, personal touch
+5. Keep all dates, company names, and core experiences accurate
 
-# Request logging
-@app.before_request
-def log_request_info():
-    print(f"=== REQUEST INFO ===")
-    print(f"Path: {request.path}")
-    print(f"Method: {request.method}")
-    print(f"Content-Type: {request.content_type}")
-    print(f"Is JSON: {request.is_json}")
-    print(f"===================")
+ORIGINAL RESUME:
+{resume_text}
+
+JOB DESCRIPTION:
+{job_description}
+
+USER NOTES (additional context or clarifications):
+{user_notes if user_notes else "No additional notes provided"}
+
+Please provide your response in exactly this format:
+
+## OPTIMIZED RESUME
+
+[Resume content here - well formatted with clear sections]
+
+## COVER LETTER
+
+[Cover letter content here - 3-4 paragraphs, professional but personable]
+
+Make sure to use exactly "## OPTIMIZED RESUME" and "## COVER LETTER" as section headers.
+"""
+
+    try:
+        client = get_anthropic_client()
+        
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=4000,
+            temperature=0.7,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        response_text = message.content[0].text if message.content else "Error generating response"
+        print(f"Claude API response received: {len(response_text)} characters")
+        
+        return response_text
+        
+    except Exception as e:
+        print(f"Anthropic API Error: {str(e)}")
+        traceback.print_exc()
+        return f"Error communicating with AI: {str(e)}"
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/optimize', methods=['POST'])
-@with_timeout(120)  # 2 minute timeout
 def optimize():
     try:
         print("=== OPTIMIZE ENDPOINT CALLED ===")
-        print(f"Request method: {request.method}")
-        print(f"Content type: {request.content_type}")
         
         # Check if file was uploaded
         if 'resume' not in request.files:
@@ -563,58 +407,37 @@ def optimize():
         filename = secure_filename(file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
-        print(f"File saved to: {file_path}")
         
         # Extract text from resume
-        print("Extracting text from file...")
         resume_text = extract_text_from_file(file_path, filename)
         
         # Clean up uploaded file
-        try:
-            os.remove(file_path)
-            print("Uploaded file cleaned up")
-        except Exception as cleanup_error:
-            print(f"Warning: Could not clean up file {file_path}: {cleanup_error}")
+        os.remove(file_path)
         
         if resume_text.startswith("Error"):
-            print(f"Text extraction error: {resume_text}")
             return jsonify({'error': resume_text}), 400
         
         print(f"Resume text extracted: {len(resume_text)} characters")
         
-        # Check API key before making request
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            print("ERROR: ANTHROPIC_API_KEY not found in environment")
-            return jsonify({'error': 'AI service configuration error. Please contact support.'}), 500
-        
-        print("API key found, generating optimized content...")
-        
-        # Generate optimized content with timeout protection
-        try:
-            result = optimize_resume_and_cover_letter(resume_text, job_description, user_notes)
-        except TimeoutError:
-            print("AI generation timed out")
-            return jsonify({'error': 'Request timed out. Please try again with a shorter resume or job description.'}), 408
+        # Generate optimized content
+        result = optimize_resume_and_cover_letter(resume_text, job_description, user_notes)
         
         if result.startswith("Error"):
-            print(f"AI generation error: {result}")
             return jsonify({'error': result}), 500
         
         print("=== AI RESPONSE RECEIVED ===")
-        print(f"Response length: {len(result)} characters")
+        print(f"Response preview: {result[:200]}...")
         
         # Parse the result using enhanced parsing
-        print("Parsing AI response...")
         resume_content, cover_letter_content = parse_ai_response(result)
         
         # Validate parsed content
         if not resume_content or len(resume_content.strip()) < 50:
-            print(f"ERROR: Resume content is too short or empty. Length: {len(resume_content) if resume_content else 0}")
+            print("ERROR: Resume content is too short or empty")
             return jsonify({'error': 'Could not extract valid resume content from AI response. Please try again.'}), 500
         
         if not cover_letter_content or len(cover_letter_content.strip()) < 50:
-            print(f"ERROR: Cover letter content is too short or empty. Length: {len(cover_letter_content) if cover_letter_content else 0}")
+            print("ERROR: Cover letter content is too short or empty")
             return jsonify({'error': 'Could not extract valid cover letter content from AI response. Please try again.'}), 500
         
         print(f"Content validation passed - Resume: {len(resume_content)} chars, Cover Letter: {len(cover_letter_content)} chars")
@@ -623,10 +446,22 @@ def optimize():
         session.permanent = True
         
         # Store in session with verification
-        print("Storing content in session...")
         session['resume_content'] = resume_content
         session['cover_letter_content'] = cover_letter_content
         
+        # Verify session storage worked
+        stored_resume = session.get('resume_content')
+        stored_cover_letter = session.get('cover_letter_content')
+        
+        if not stored_resume:
+            print("ERROR: Failed to store resume content in session")
+            return jsonify({'error': 'Failed to store resume content. Please try again.'}), 500
+        
+        if not stored_cover_letter:
+            print("ERROR: Failed to store cover letter content in session")
+            return jsonify({'error': 'Failed to store cover letter content. Please try again.'}), 500
+        
+        print(f"Session storage verified - Resume: {len(stored_resume)} chars, Cover Letter: {len(stored_cover_letter)} chars")
         print("=== OPTIMIZATION COMPLETED SUCCESSFULLY ===")
         
         return jsonify({
@@ -636,17 +471,10 @@ def optimize():
             'cover_letter_content': cover_letter_content
         })
         
-    except TimeoutError:
-        print("OPTIMIZE TIMEOUT: Request exceeded time limit")
-        return jsonify({'error': 'Request timed out. Please try again with shorter content.'}), 408
     except Exception as e:
         print(f"OPTIMIZE ERROR: {str(e)}")
-        print(f"Error type: {type(e)}")
         traceback.print_exc()
-        
-        # Return a proper JSON error response
-        error_message = f'Server error: {str(e)}'
-        return jsonify({'error': error_message}), 500
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/download/<file_type>')
 def download_file(file_type):
@@ -657,6 +485,10 @@ def download_file(file_type):
             print(f"ERROR: Invalid file type: {file_type}")
             return jsonify({'error': 'Invalid file type'}), 400
         
+        # Debug session contents
+        print(f"Session keys: {list(session.keys())}")
+        print(f"Session ID: {session.get('_id', 'No ID')}")
+        
         # Get content from session
         content_key = f'{file_type}_content'
         content = session.get(content_key)
@@ -665,6 +497,8 @@ def download_file(file_type):
         
         if not content:
             print(f"ERROR: No content found for {file_type}")
+            available_keys = [k for k in session.keys() if not k.startswith('_')]
+            print(f"Available session keys: {available_keys}")
             return jsonify({'error': f'No {file_type} content available. Please generate content first.'}), 400
         
         if len(content.strip()) < 10:
@@ -710,109 +544,17 @@ def download_file(file_type):
         traceback.print_exc()
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
-# Improved error handlers
-@app.errorhandler(404)
-def not_found_error(error):
-    print(f"404 Error Handler Called: {error}")
-    if request.is_json or request.content_type == 'application/json':
-        return jsonify({'error': 'Endpoint not found'}), 404
-    else:
-        # For browser requests, return a simple HTML page
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head><title>404 - Not Found</title></head>
-        <body>
-            <h1>404 - Page Not Found</h1>
-            <p>The requested URL was not found on this server.</p>
-            <p><a href="/">Go back to home</a></p>
-        </body>
-        </html>
-        """, 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    print(f"500 Error Handler Called: {error}")
-    return jsonify({'error': 'Internal server error occurred'}), 500
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    print(f"General Exception Handler Called: {e}")
-    print(f"Exception type: {type(e)}")
-    traceback.print_exc()
-    
-    # Check if this is an API request (expecting JSON response)
-    if request.path.startswith('/optimize') or request.path.startswith('/download') or request.path.startswith('/health'):
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-    else:
-        # For browser requests to main page
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head><title>Error</title></head>
-        <body>
-            <h1>Application Error</h1>
-            <p>An unexpected error occurred. Please try again later.</p>
-            <p><a href="/">Go back to home</a></p>
-        </body>
-        </html>
-        """, 500
-
-# Add a catch-all route for debugging
-@app.route('/<path:path>')
-def catch_all(path):
-    print(f"Catch-all route hit: {path}")
-    return jsonify({
-        'error': f'Route not found: /{path}',
-        'available_routes': [
-            '/',
-            '/optimize',
-            '/download/resume', 
-            '/download/cover_letter',
-            '/health'
-        ]
-    }), 404
-
+# Health check endpoint for Render
 @app.route('/health')
 def health_check():
-    try:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        health_data = {
-            'status': 'healthy', 
-            'service': 'resume-optimizer',
-            'api_key_configured': bool(api_key),
-            'upload_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
-            'download_folder_exists': os.path.exists(app.config['DOWNLOAD_FOLDER'])
-        }
-        
-        # Test Anthropic client
-        try:
-            get_anthropic_client()
-            health_data['anthropic_client'] = 'initialized'
-        except Exception as e:
-            health_data['anthropic_client'] = f'error: {str(e)}'
-            health_data['status'] = 'degraded'
-        
-        return jsonify(health_data), 200
-    except Exception as e:
-        return jsonify({
-            'status': 'unhealthy', 
-            'error': str(e)
-        }), 500
+    return jsonify({'status': 'healthy', 'service': 'resume-optimizer'}), 200
 
 if __name__ == '__main__':
     # Development server
     port = int(os.environ.get('PORT', 5000))
-    print(f"Starting server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
 else:
-    # Production server (Gunicorn on Render)
-    print("=== STARTING RESUME OPTIMIZER IN PRODUCTION MODE ===")
+    # Production server (Gunicorn)
+    print("Starting Resume Optimizer in production mode...")
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     print(f"Download folder: {app.config['DOWNLOAD_FOLDER']}")
-    
-    # Check environment on startup
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    print(f"ANTHROPIC_API_KEY configured: {'Yes' if api_key else 'No'}")
-    
-    print("=== PRODUCTION STARTUP COMPLETE ===")
